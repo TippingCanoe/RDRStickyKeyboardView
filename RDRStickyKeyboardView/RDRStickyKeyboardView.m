@@ -147,14 +147,19 @@ static BOOL RDRKeyboardIsFullyHidden(CGRect keyboardFrame) {
  * is visible.
  */
 static inline CGFloat RDRTextViewHeight(UITextView *textView) {
-    NSTextContainer *textContainer = textView.textContainer;
-    CGRect textRect =
-    [textView.layoutManager usedRectForTextContainer:textContainer];
     
-    CGFloat textViewHeight = textRect.size.height +
-    textView.textContainerInset.top + textView.textContainerInset.bottom;
+    if (([[[UIDevice currentDevice] systemVersion] compare:@"7.0" options:NSNumericSearch] != NSOrderedAscending)){
+        NSTextContainer *textContainer = textView.textContainer;
+        CGRect textRect =
+        [textView.layoutManager usedRectForTextContainer:textContainer];
+        
+        CGFloat textViewHeight = textRect.size.height +
+        textView.textContainerInset.top + textView.textContainerInset.bottom;
+        return textViewHeight;
+    }else{
+        return 30;
+    }
     
-    return textViewHeight;
 }
 
 static CGFloat RDRContentOffsetForBottom(UIScrollView *scrollView) {
@@ -184,11 +189,10 @@ static inline UIViewAnimationOptions RDRAnimationOptionsForCurve(UIViewAnimation
 
 @interface RDRKeyboardInputView () {
     UITextView *_textView;
-    UIButton *_leftButton;
     UIButton *_rightButton;
 }
 
-@property (nonatomic, strong, readonly) UIToolbar *toolbar;
+@property (nonatomic, strong, readonly) UIView *toolbar;
 
 @end
 
@@ -223,23 +227,11 @@ static inline UIViewAnimationOptions RDRAnimationOptionsForCurve(UIViewAnimation
                                                        green:200.0f/255.0f
                                                         blue:205.0f/255.0f
                                                        alpha:1.0f].CGColor;
-    
-    return self.textView;
-}
-
-- (UIButton *)leftButton
-{
-    if (_leftButton != nil) {
-        return _leftButton;
+    if (([[[UIDevice currentDevice] systemVersion] compare:@"7.0" options:NSNumericSearch] != NSOrderedAscending)){
+        self.textView.keyboardDismissMode = UIScrollViewKeyboardDismissModeInteractive;
     }
     
-    _leftButton = [UIButton buttonWithType:UIButtonTypeSystem];
-    _leftButton.titleLabel.font = [UIFont systemFontOfSize:15.0f];
-    
-    [_leftButton setTitle:NSLocalizedString(@"Other", nil)
-                 forState:UIControlStateNormal];
-    
-    return _leftButton;
+    return self.textView;
 }
 
 - (UIButton *)rightButton
@@ -248,7 +240,7 @@ static inline UIViewAnimationOptions RDRAnimationOptionsForCurve(UIViewAnimation
         return _rightButton;
     }
     
-    _rightButton = [UIButton buttonWithType:UIButtonTypeSystem];
+    _rightButton = [UIButton buttonWithType:UIButtonTypeCustom];
     _rightButton.titleLabel.font = [UIFont systemFontOfSize:14.0f];
     
     [_rightButton setTitle:NSLocalizedString(@"Send", nil)
@@ -261,11 +253,11 @@ static inline UIViewAnimationOptions RDRAnimationOptionsForCurve(UIViewAnimation
 
 - (void)_setupSubviews
 {
-    _toolbar = [UIToolbar new];
-    _toolbar.translucent = YES;
+    _toolbar = [UIView new];
+    [_toolbar setBackgroundColor:[UIColor whiteColor]];
+    
     [self addSubview:self.toolbar];
     
-    [self addSubview:self.leftButton];
     [self addSubview:self.rightButton];
     [self addSubview:self.textView];
     
@@ -284,33 +276,34 @@ static inline UIViewAnimationOptions RDRAnimationOptionsForCurve(UIViewAnimation
     self.frame = newFrame;
     
     // Calculate button margin with new frame height
-    [self.leftButton sizeToFit];
     [self.rightButton sizeToFit];
     
-    CGFloat leftButtonMargin =
-    roundf((height - self.leftButton.frame.size.height) / 2.0f);
+    CGFloat rbWidth = 45;
+    
+    CGRect rbFrame = self.rightButton.frame;
+    rbFrame.size.width = rbWidth;
+    
+    [self.rightButton setFrame:rbFrame];
+    
     CGFloat rightButtonMargin =
     roundf((height - self.rightButton.frame.size.height) / 2.0f);
     
-    leftButtonMargin = roundf(leftButtonMargin);
     rightButtonMargin = roundf(rightButtonMargin);
     
     // Set autolayout property
     self.toolbar.translatesAutoresizingMaskIntoConstraints = NO;
-    self.leftButton.translatesAutoresizingMaskIntoConstraints = NO;
     self.rightButton.translatesAutoresizingMaskIntoConstraints = NO;
     self.textView.translatesAutoresizingMaskIntoConstraints = NO;
     
     // Define constraints
     NSArray *constraints = nil;
     NSString *visualFormat = nil;
-    NSDictionary *views = @{ @"leftButton" : self.leftButton,
-                             @"rightButton" : self.rightButton,
-                             @"textView" : self.textView,
-                             @"toolbar" : self.toolbar};
+    NSDictionary *views = @{
+                            @"rightButton" : self.rightButton,
+                            @"textView" : self.textView,
+                            @"toolbar" : self.toolbar};
     NSDictionary *metrics = @{ @"hor" : @(RDR_KEYBOARD_INPUT_VIEW_MARGIN_HORIZONTAL),
                                @"ver" : @(RDR_KEYBOARD_INPUT_VIEW_MARGIN_VERTICAL),
-                               @"leftButtonMargin" : @(leftButtonMargin),
                                @"rightButtonMargin" : @(rightButtonMargin)};
     
     constraints = [NSLayoutConstraint constraintsWithVisualFormat:@"V:|[toolbar]|"
@@ -325,14 +318,7 @@ static inline UIViewAnimationOptions RDRAnimationOptionsForCurve(UIViewAnimation
                                                             views:views];
     [self addConstraints:constraints];
     
-    visualFormat = @"H:|-(==hor)-[leftButton]-(==hor)-[textView]-(==hor)-[rightButton]-(==hor)-|";
-    constraints = [NSLayoutConstraint constraintsWithVisualFormat:visualFormat
-                                                          options:0
-                                                          metrics:metrics
-                                                            views:views];
-    [self addConstraints:constraints];
-    
-    visualFormat = @"V:|-(>=leftButtonMargin)-[leftButton]-(==leftButtonMargin)-|";
+    visualFormat = @"H:|-(==hor)-[textView]-(==hor)-[rightButton]-(==hor)-|";
     constraints = [NSLayoutConstraint constraintsWithVisualFormat:visualFormat
                                                           options:0
                                                           metrics:metrics
@@ -416,7 +402,6 @@ static NSInteger const RDRInterfaceOrientationUnknown   = -1;
     UIInterfaceOrientation _currentOrientation;
 }
 
-@property (nonatomic, strong) RDRKeyboardInputView *dummyInputView;
 
 @end
 
@@ -431,7 +416,10 @@ static NSInteger const RDRInterfaceOrientationUnknown   = -1;
         _scrollView = scrollView;
         _scrollView.autoresizingMask = UIViewAutoresizingFlexibleWidth|
         UIViewAutoresizingFlexibleHeight;
-        _scrollView.keyboardDismissMode = UIScrollViewKeyboardDismissModeInteractive;
+        
+        if (([[[UIDevice currentDevice] systemVersion] compare:@"7.0" options:NSNumericSearch] != NSOrderedAscending)){
+            _scrollView.keyboardDismissMode = UIScrollViewKeyboardDismissModeInteractive;
+        }
         
         _currentOrientation = RDRInterfaceOrientationUnknown;
         
@@ -492,7 +480,10 @@ static NSInteger const RDRInterfaceOrientationUnknown   = -1;
     self.dummyInputView.autoresizingMask = UIViewAutoresizingFlexibleWidth|
     UIViewAutoresizingFlexibleTopMargin;
     self.dummyInputView.textView.inputAccessoryView = self.inputView;
-    self.dummyInputView.textView.tintColor = [UIColor clearColor]; // hide cursor
+    if (([[[UIDevice currentDevice] systemVersion] compare:@"7.0" options:NSNumericSearch] != NSOrderedAscending)){
+        self.dummyInputView.textView.tintColor = [UIColor clearColor]; // hide cursor
+    };
+    
     self.dummyInputView.textView.delegate = self;
     [self addSubview:self.dummyInputView];
 }
