@@ -577,15 +577,6 @@ static NSInteger const RDRInterfaceOrientationUnknown   = -1;
     // Check if orientation changed
     [self _updateInputViewFrameIfOrientationChanged:endFrame];
     
-    // This method is called because the user has tapped
-    // the dummy input view, which has become first responder.
-    // Take over first responder status from the dummy input view
-    // and transfer it to the actual input view, which is the
-    // inputAccessoryView of the dummy input view.
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [self.inputView.textView becomeFirstResponder];
-    });
-    
     // Disregard false notification
     // This works around a bug in iOS
     CGRect inputViewBounds = self.inputView.bounds;
@@ -612,6 +603,10 @@ static NSInteger const RDRInterfaceOrientationUnknown   = -1;
     if (RDRKeyboardIsFullyShown(beginFrame)) {
         return;
     }
+    
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self.inputView.textView becomeFirstResponder];
+    });
     
     [self _scrollViewAdaptInsetsToKeyboardFrame:endFrame];
     [self.scrollView rdr_scrollToBottomWithOptions:RDRAnimationOptionsForCurve(curve)
@@ -670,6 +665,8 @@ static NSInteger const RDRInterfaceOrientationUnknown   = -1;
     [self.scrollView rdr_scrollToBottomWithOptions:RDRAnimationOptionsForCurve(curve)
                                           duration:duration
                                    completionBlock:nil];
+    
+    [self.inputView.textView resignFirstResponder];
 }
 
 #pragma mark - Notification handler helpers
