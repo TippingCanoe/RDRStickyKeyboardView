@@ -193,6 +193,8 @@ static inline UIViewAnimationOptions RDRAnimationOptionsForCurve(UIViewAnimation
 }
 
 @property (nonatomic, strong, readonly) UIView *toolbar;
+@property (nonatomic, copy) void(^sendBlock)(NSString *text, UIButton *sender, UITextView *textView);
+- (void)setSendBlock:(void (^)(NSString *text, UIButton *sender, UITextView *textView))sendBlock;
 
 @end
 
@@ -245,8 +247,18 @@ static inline UIViewAnimationOptions RDRAnimationOptionsForCurve(UIViewAnimation
     
     [_rightButton setTitle:NSLocalizedString(@"Send", nil)
                   forState:UIControlStateNormal];
+    [_rightButton addTarget:self action:@selector(sendButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
     
     return _rightButton;
+}
+
+#pragma mark - Action Handlers
+
+- (void)sendButtonTapped:(UIButton*)sender{
+    
+    if (_sendBlock) {
+        _sendBlock(_textView.text, sender, _textView);
+    }
 }
 
 #pragma mark - Private
@@ -456,6 +468,17 @@ static NSInteger const RDRInterfaceOrientationUnknown   = -1;
                                      forceReload:YES];
 }
 
+- (void)setSendBlock:(void (^)(NSString *text, UIButton *sender, UITextView *textView))sendBlock{
+    
+    void(^modifiedSendBlock)(NSString *text, UIButton *sender, UITextView *textView) = ^(NSString *text, UIButton *sender, UITextView *textView){
+        sendBlock(text, sender, textView);
+        [self reloadInputAccessoryView];
+    };
+    
+    [self.inputView setSendBlock:modifiedSendBlock];
+    [self.dummyInputView setSendBlock:modifiedSendBlock];
+}
+
 #pragma mark - Private
 
 - (void)_setupSubviews
@@ -559,7 +582,9 @@ static NSInteger const RDRInterfaceOrientationUnknown   = -1;
     // Take over first responder status from the dummy input view
     // and transfer it to the actual input view, which is the
     // inputAccessoryView of the dummy input view.
-    [self.inputView.textView becomeFirstResponder];
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self.inputView.textView becomeFirstResponder];
+    });
     
     // Disregard false notification
     // This works around a bug in iOS

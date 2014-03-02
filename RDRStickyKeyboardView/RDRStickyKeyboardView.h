@@ -58,7 +58,7 @@
 @property (nonatomic, strong, readonly) UIScrollView *scrollView;
 @property (nonatomic, strong, readonly) RDRKeyboardInputView *inputView;
 @property (nonatomic, strong) RDRKeyboardInputView *dummyInputView;
-
+- (void)setSendBlock:(void (^)(NSString *text, UIButton *sender, UITextView *textView))sendBlock;
 
 // Designated initializer
 - (instancetype)initWithScrollView:(UIScrollView *)scrollView;
